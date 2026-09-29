@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bình chọn</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; }
+  .card { max-width: 520px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  h1 { font-size: 22px; margin-top: 0; }
+  label { display: block; margin: 12px 0 4px; font-weight: 600; }
+  input[type=text], input[type=password] { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box; }
+  button { margin-top: 16px; padding: 10px 18px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font-size: 15px; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  .option { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 8px; cursor: pointer; }
+  .option:hover { background: #f9fafb; }
+  .msg { margin-top: 12px; }
+  .error { color: #dc2626; }
+  .success { color: #16a34a; }
+  .link { word-break: break-all; background: #eef2ff; padding: 10px; border-radius: 8px; margin-top: 8px; }
+  .bar { background: #e5e7eb; border-radius: 6px; overflow: hidden; height: 18px; margin: 4px 0 12px; }
+  .bar div { background: #2563eb; height: 100%; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <!-- Admin: tạo cuộc bình chọn -->
+  <div id="adminView" class="hidden">
+    <h1>Tạo cuộc bình chọn</h1>
+    <label>Mã admin</label>
+    <input type="password" id="adminKey">
+    <label>Tiêu đề</label>
+    <input type="text" id="title" placeholder="VD: Bầu lớp trưởng">
+    <label>Ứng viên (3 hoặc 4)</label>
+    <input type="text" class="cand" placeholder="Ứng viên 1">
+    <input type="text" class="cand" placeholder="Ứng viên 2" style="margin-top:8px">
+    <input type="text" class="cand" placeholder="Ứng viên 3" style="margin-top:8px">
+    <input type="text" class="cand" placeholder="Ứng viên 4 (không bắt buộc)" style="margin-top:8px">
+    <button id="createBtn">Phát hành link</button>
+    <div id="adminMsg" class="msg"></div>
+  </div>
+
+  <!-- User: bình chọn -->
+  <div id="voteView" class="hidden">
+    <h1 id="pollTitle">Đang tải...</h1>
+    <div id="voteForm" class="hidden">
+      <label>Tên của bạn (không bắt buộc)</label>
+      <input type="text" id="voterName">
+      <div id="options"></div>
+      <button id="voteBtn">Bình chọn</button>
+    </div>
+    <div id="voteMsg" class="msg"></div>
+    <div id="results" class="hidden"></div>
+  </div>
+
+</div>
+
+<script>
+  // Dán URL Web App của Google Apps Script vào đây
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwQp0epOG33skFjEOcq8z1pMU4R46XaK007lHU4pqwdWaIopRgxEe6mCfaSlOlqAyf2/execPASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const pollId = params.get('poll');
+
+  function showMsg(el, text, type) {
+    el.textContent = text;
+    el.className = 'msg ' + (type || '');
+  }
+
+  async function apiGet(query) {
+    const res = await fetch(SCRIPT_URL + '?' + new URLSearchParams(query));
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  // text/plain avoids a CORS preflight, which Apps Script doesn't support
+  async function apiPost(body) {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  function getVoterId() {
+    let id = localStorage.getItem('voterId');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('voterId', id);
+    }
+    return id;
+  }
+
+  // ---------- Admin ----------
+  function initAdmin() {
+    $('adminView').classList.remove('hidden');
+    $('createBtn').onclick = async () => {
+      const msg = $('adminMsg');
+      const candidates = [...document.querySelectorAll('.cand')].map(i => i.value.trim()).filter(Boolean);
+      if (!$('title').value.trim()) return showMsg(msg, 'Vui lòng nhập tiêu đề', 'error');
+      if (candidates.length < 3) return showMsg(msg, 'Cần ít nhất 3 ứng viên', 'error');
+
+      $('createBtn').disabled = true;
+      showMsg(msg, 'Đang tạo...');
+      try {
+        const { id } = await apiPost({
+          action: 'create',
+          adminKey: $('adminKey').value,
+          title: $('title').value.trim(),
+          candidates
+        });
+        const link = location.origin + location.pathname + '?poll=' + id;
+        msg.className = 'msg success';
+        msg.textContent = 'Đã tạo! Gửi link này cho người bình chọn:';
+        const box = document.createElement('div');
+        box.className = 'link';
+        const a = document.createElement('a');
+        a.href = link; a.textContent = link; a.target = '_blank';
+        box.appendChild(a);
+        const copy = document.createElement('button');
+        copy.textContent = 'Sao chép link';
+        copy.onclick = () => navigator.clipboard.writeText(link).then(() => copy.textContent = 'Đã sao chép');
+        msg.append(box, copy);
+      } catch (e) {
+        showMsg(msg, e.message, 'error');
+      } finally {
+        $('createBtn').disabled = false;
+      }
+    };
+  }
+
+  // ---------- Vote ----------
+  async function loadResults() {
+    const data = await apiGet({ action: 'results', id: pollId });
+    const total = Object.values(data.counts).reduce((a, b) => a + b, 0);
+    const box = $('results');
+    box.innerHTML = '<h3>Kết quả</h3>';
+    for (const [name, count] of Object.entries(data.counts)) {
+      const pct = total ? Math.round(count * 100 / total) : 0;
+      const label = document.createElement('div');
+      label.textContent = `${name}: ${count} phiếu (${pct}%)`;
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.innerHTML = `<div style="width:${pct}%"></div>`;
+      box.append(label, bar);
+    }
+    box.classList.remove('hidden');
+  }
+
+  async function initVote() {
+    $('voteView').classList.remove('hidden');
+    const msg = $('voteMsg');
+    try {
+      const poll = await apiGet({ action: 'poll', id: pollId });
+      $('pollTitle').textContent = poll.title;
+      document.title = poll.title;
+
+      if (localStorage.getItem('voted_' + pollId)) {
+        showMsg(msg, 'Bạn đã bình chọn cho cuộc bình chọn này.', 'success');
+        return loadResults();
+      }
+
+      const opts = $('options');
+      poll.candidates.forEach(c => {
+        const label = document.createElement('label');
+        label.className = 'option';
+        const input = document.createElement('input');
+        input.type = 'radio'; input.name = 'candidate'; input.value = c;
+        const span = document.createElement('span');
+        span.textContent = c;
+        label.append(input, span);
+        opts.appendChild(label);
+      });
+      $('voteForm').classList.remove('hidden');
+
+      $('voteBtn').onclick = async () => {
+        const selected = document.querySelector('input[name=candidate]:checked');
+        if (!selected) return showMsg(msg, 'Vui lòng chọn một ứng viên', 'error');
+        $('voteBtn').disabled = true;
+        showMsg(msg, 'Đang gửi...');
+        try {
+          await apiPost({
+            action: 'vote',
+            pollId,
+            candidate: selected.value,
+            voterName: $('voterName').value.trim(),
+            voterId: getVoterId()
+          });
+          localStorage.setItem('voted_' + pollId, '1');
+          $('voteForm').classList.add('hidden');
+          showMsg(msg, 'Cảm ơn bạn đã bình chọn!', 'success');
+          loadResults();
+        } catch (e) {
+          showMsg(msg, e.message, 'error');
+          $('voteBtn').disabled = false;
+        }
+      };
+    } catch (e) {
+      $('pollTitle').textContent = 'Lỗi';
+      showMsg(msg, e.message, 'error');
+    }
+  }
+
+  pollId ? initVote() : initAdmin();
+</script>
+</body>
+</html>
