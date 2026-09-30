@@ -32,12 +32,12 @@
     <label>Mã admin</label>
     <input type="password" id="adminKey">
     <label>Tiêu đề</label>
-    <input type="text" id="title" placeholder="VD: Bầu lớp trưởng">
+    <input type="text" id="title" placeholder="VD: Chọn ngày lành tháng tố">
     <label>Ứng viên (3 hoặc 4)</label>
-    <input type="text" class="cand" placeholder="Ứng viên 1">
-    <input type="text" class="cand" placeholder="Ứng viên 2" style="margin-top:8px">
-    <input type="text" class="cand" placeholder="Ứng viên 3" style="margin-top:8px">
-    <input type="text" class="cand" placeholder="Ứng viên 4 (không bắt buộc)" style="margin-top:8px">
+    <input type="text" class="cand" placeholder="Option 1">
+    <input type="text" class="cand" placeholder="Option 2" style="margin-top:8px">
+    <input type="text" class="cand" placeholder="Option 3" style="margin-top:8px">
+    <input type="text" class="cand" placeholder="Option 4 (không bắt buộc)" style="margin-top:8px">
     <button id="createBtn">Phát hành link</button>
     <div id="adminMsg" class="msg"></div>
   </div>
@@ -59,7 +59,7 @@
 
 <script>
   // Dán URL Web App của Google Apps Script vào đây
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwQp0epOG33skFjEOcq8z1pMU4R46XaK007lHU4pqwdWaIopRgxEe6mCfaSlOlqAyf2/exec';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw-UsArcVm4s2W9TIOkxUNAj3iPV534f0uZgEOvOYAoBGPfTx4EYkfScyJyuFf8cFj3/exec';
 
   const $ = id => document.getElementById(id);
   const params = new URLSearchParams(location.search);
