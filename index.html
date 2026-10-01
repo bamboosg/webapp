@@ -70,10 +70,19 @@
     el.className = 'msg ' + (type || '');
   }
 
+  function normalizeCandidate(value) {
+    return String(value == null ? '' : value).trim().replace(/\s+/g, ' ');
+  }
+
   async function apiGet(query) {
     const res = await fetch(SCRIPT_URL + '?' + new URLSearchParams(query));
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    let data;
+    try {
+      data = await res.json();
+    } catch (err) {
+      throw new Error('Không thể tải dữ liệu từ máy chủ');
+    }
+    if (!res.ok || data.error) throw new Error(data && data.error ? data.error : 'Yêu cầu không thành công');
     return data;
   }
 
@@ -84,15 +93,21 @@
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(body)
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    let data;
+    try {
+      data = await res.json();
+    } catch (err) {
+      throw new Error('Không thể gửi dữ liệu đến máy chủ');
+    }
+    if (!res.ok || data.error) throw new Error(data && data.error ? data.error : 'Yêu cầu không thành công');
     return data;
   }
 
   function getVoterId() {
     let id = localStorage.getItem('voterId');
     if (!id) {
-      id = crypto.randomUUID();
+      const c = window.crypto;
+      id = c && typeof c.randomUUID === 'function' ? c.randomUUID() : 'voter-' + Date.now() + '-' + Math.random().toString(16).slice(2);
       localStorage.setItem('voterId', id);
     }
     return id;
@@ -103,9 +118,14 @@
     $('adminView').classList.remove('hidden');
     $('createBtn').onclick = async () => {
       const msg = $('adminMsg');
-      const candidates = [...document.querySelectorAll('.cand')].map(i => i.value.trim()).filter(Boolean);
+      const candidates = [...document.querySelectorAll('.cand')]
+        .map(i => normalizeCandidate(i.value))
+        .filter(Boolean);
       if (!$('title').value.trim()) return showMsg(msg, 'Vui lòng nhập tiêu đề', 'error');
       if (candidates.length < 3) return showMsg(msg, 'Cần ít nhất 3 ứng viên', 'error');
+
+      const unique = [...new Set(candidates.map(c => c.toLowerCase()))];
+      if (unique.length !== candidates.length) return showMsg(msg, 'Tên ứng viên không được trùng nhau (bỏ qua khoảng trắng và chữ hoa/thường)', 'error');
 
       $('createBtn').disabled = true;
       showMsg(msg, 'Đang tạo...');
