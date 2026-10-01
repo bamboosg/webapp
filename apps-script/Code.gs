@@ -45,15 +45,25 @@ function safe_(v) {
   return /^[=+\-@]/.test(s) ? "'" + s : s;
 }
 
+function normalizeCandidate_(value) {
+  return String(value == null ? '' : value).trim().replace(/\s+/g, ' ');
+}
+
 function createPoll_(body) {
   const adminKey = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
   if (!adminKey || body.adminKey !== adminKey) throw new Error('Sai mã admin');
 
   const title = safe_(body.title);
-  const candidates = (body.candidates || []).map(safe_).filter(String);
+  const candidates = (body.candidates || [])
+    .map(normalizeCandidate_)
+    .filter(Boolean)
+    .map(safe_);
+
   if (!title) throw new Error('Thiếu tiêu đề');
   if (candidates.length < 3 || candidates.length > 4) throw new Error('Cần 3 hoặc 4 ứng viên');
-  if (new Set(candidates).size !== candidates.length) throw new Error('Tên ứng viên bị trùng');
+
+  const lowered = candidates.map(c => c.toLowerCase());
+  if (new Set(lowered).size !== lowered.length) throw new Error('Tên ứng viên bị trùng');
 
   const id = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
   pollsSheet_().appendRow([id, title, JSON.stringify(candidates), new Date()]);
